@@ -31,3 +31,30 @@
     transform: rotate(360deg);
   }
 }
+
+.g-margin {
+  margin: 8px !important;
+}
+
+.g-padding {
+  padding: 8px !important;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pointer {
+  cursor: pointer;
+}
+
+.value-input {
+  outline: none;
+  border: none;
+}
+
+.connect-to-other-wallet {
+  color: #791313;
+}

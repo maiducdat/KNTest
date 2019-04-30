@@ -1,0 +1,25 @@
+.token-detail-box-content {
+  padding: 8px;
+  border-radius: 23px;
+  border: 1px solid #80808061;
+}
+
+img.token-image {
+  width: 28px;
+  height: 28px;
+}
+
+.dropdown-menu.show {
+  margin-top: 12px;
+  height: 300px;
+  overflow: auto;
+}
+
+.token-select {
+  border: 1px solid gray;
+  border-radius: 50%;
+}
+
+.token-option > span {
+  line-height: 28px;
+}
