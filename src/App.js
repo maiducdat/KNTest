@@ -164,6 +164,9 @@ class App extends React.Component {
     const destinyDetail = swapDetail.destiny;
     return (
       <div>
+        <div className="g-margin g-padding">
+          <h3>DatMD KNTest</h3>
+        </div>
         <div className="transfer-component row no-gutters">
           <div className="sub-container col-12 col-md-6 g-padding">
             <TokenDetailBox
@@ -181,7 +184,7 @@ class App extends React.Component {
               onChangeToken={this.onChangeToken}
             />
           </div>
-          <div className="d-flex justify-content-start g-padding">
+          <div className="d-flex justify-content-start g-margin g-padding">
             {
               this.state.isUpdateRate ? (
                 <Spinner size="sm" color="info" />

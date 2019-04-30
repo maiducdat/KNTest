@@ -8,7 +8,8 @@ export default class Provider {
   }
 
   initWeb3() {
-    this.web3 = new Web3(Web3.givenProvider || 'ws://localhost:8546', null, {});
+    // this.web3 = new Web3(Web3.givenProvider || 'ws://localhost:8546', null, {});
+    this.web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/v3/c1d32946e55e45b78c330954cf543fc7', 3000));
     this.networkContract = new this.web3.eth.Contract(CONSTANTS.KYBER_NETWORK, CONSTANTS.NETWORK_ADDRESS);
     this.wrapperContract = new this.web3.eth.Contract(CONSTANTS.KYBER_WRAPPER, CONSTANTS.WRAPPER_ADDRESS);
   }
