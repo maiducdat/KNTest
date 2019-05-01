@@ -58,3 +58,7 @@ input[type=number]::-webkit-outer-spin-button {
 .connect-to-other-wallet {
   color: #791313;
 }
+
+.invert-rate-container {
+  height: 40px;
+}

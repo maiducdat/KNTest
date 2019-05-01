@@ -33,6 +33,8 @@ class App extends React.Component {
     super(props);
     this.state = initState;
     this.provider = new Provider();
+    this.lastUpdateId = 1;
+    this.lastTimeoutId = null;
   }
 
   componentDidMount() {
@@ -43,6 +45,13 @@ class App extends React.Component {
     this.setState(initState, () => {
       this.updateRate(this.state.swapDetail.source, this.state.swapDetail.destiny, null);
     });
+  };
+
+  clearLastTimeout = () => {
+    if (this.lastTimeoutId) {
+      clearTimeout(this.lastTimeoutId);
+      this.lastTimeoutId = null;
+    }
   };
 
   togglePrivateKeyModal = () => {
@@ -113,37 +122,53 @@ class App extends React.Component {
   };
 
   onChangeToken = (key, type, value) => {
+    this.clearLastTimeout();
     let swapDetail = JSON.parse(JSON.stringify(this.state.swapDetail));
     swapDetail[key][type] = value;
     this.setState({swapDetail}, () => {
       const { swapDetail } = this.state;
-      if(key === 'source') {
-        this.updateRate(swapDetail.source, swapDetail.destiny, 'destiny');
-      } else {
-        this.updateRate(swapDetail.destiny, swapDetail.source, 'source');
-      }
+      this.updateRate(swapDetail.source, swapDetail.destiny, key === 'source' ? 'destiny' : 'source');
     });
   };
 
   updateRate = (source, destiny, updateTarget) => {
+    this.lastUpdateId++;
+    const currentUpdateId = this.lastUpdateId;
     this.setState({isUpdateRate: true});
+    const reUpdateRate = () => {
+      this.clearLastTimeout();
+      const timeoutId = setTimeout(() => {
+        this.updateRate(source, destiny, updateTarget);
+      }, CONSTANTS.TIME_TO_UPDATE_RATE);
+      this.lastTimeoutId = timeoutId;
+    };
     this.provider.getLatestBlock()
       .then(latestBlockNo => {
         const amount = Utils.toHex((source.value ? source.value : 1) * Math.pow(10, 18));
         this.provider.getRateAtSpecificBlock(source.token.address, destiny.token.address, amount, latestBlockNo)
           .then(data => {
+            if (currentUpdateId !== this.lastUpdateId) {
+              return;
+            }
             let expectedPrice = parseInt(data.expectedPrice.toString())/Math.pow(10, 18);
-
             let swapDetail = JSON.parse(JSON.stringify(this.state.swapDetail));
             if (updateTarget && (source.value || destiny.value)) {
-              swapDetail[updateTarget].value = (source.value * expectedPrice).toFixed(CONSTANTS.PRECISION);
+              if (updateTarget === 'destiny') {
+                swapDetail[updateTarget].value = (source.value * expectedPrice).toFixed(CONSTANTS.PRECISION);
+              } else {
+                swapDetail[updateTarget].value = (destiny.value / expectedPrice).toFixed(CONSTANTS.PRECISION);
+              }
             }
             let invertRate = (1 / expectedPrice).toFixed(CONSTANTS.PRECISION);
-            if (updateTarget === 'source') {
-              invertRate = expectedPrice.toFixed(CONSTANTS.PRECISION);
+            if (updateTarget) {
+              invertRate = (swapDetail.source.value / swapDetail.destiny.value).toFixed(CONSTANTS.PRECISION);
             }
-            this.setState({invertRate, swapDetail}, () => {
-              this.setState({isUpdateRate: false});
+            this.setState({
+              isUpdateRate: false,
+              invertRate,
+              swapDetail
+            }, () => {
+              reUpdateRate();
             });
           })
           .catch(error => {
@@ -184,7 +209,7 @@ class App extends React.Component {
               onChangeToken={this.onChangeToken}
             />
           </div>
-          <div className="d-flex justify-content-start g-margin g-padding">
+          <div className="invert-rate-container d-flex justify-content-start align-items-center g-margin g-padding">
             {
               this.state.isUpdateRate ? (
                 <Spinner size="sm" color="info" />
