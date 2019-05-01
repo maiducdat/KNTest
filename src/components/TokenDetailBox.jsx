@@ -31,7 +31,7 @@ class TokenDetailBox extends React.Component {
             </DropdownToggle>
             <DropdownMenu>
               {
-                CONSTANTS.tokenList.map((token, index) => {
+                CONSTANTS.TOKEN_LIST.map((token, index) => {
                   return <DropdownItem
                     key={index}
                     value={token.symbol}

@@ -10,7 +10,9 @@ const initState = {
   isAuthenticated: false,
   isShowPrivateKeyModal: false,
   isUpdateRate: false,
+  expectedPrice: 0,
   invertRate: 0,
+  errorMsg: '',
   walletDetail: {
     privateKey: '',
     address: '',
@@ -18,11 +20,11 @@ const initState = {
   },
   swapDetail: {
     source: {
-      token: CONSTANTS.tokenList[0],
+      token: CONSTANTS.TOKEN_LIST[0],
       value: ''
     },
     destiny: {
-      token: CONSTANTS.tokenList[1],
+      token: CONSTANTS.TOKEN_LIST[1],
       value: ''
     }
   }
@@ -38,12 +40,12 @@ class App extends React.Component {
   }
 
   componentDidMount() {
-    this.updateRate(this.state.swapDetail.source, this.state.swapDetail.destiny, null);
+    this.updateRate(this.state.swapDetail.source, this.state.swapDetail.destiny, CONSTANTS.NETWORK_MIN_ACCEPT_AMOUNT, null);
   }
 
   reset = () => {
     this.setState(initState, () => {
-      this.updateRate(this.state.swapDetail.source, this.state.swapDetail.destiny, null);
+      this.updateRate(this.state.swapDetail.source, this.state.swapDetail.destiny, CONSTANTS.NETWORK_MIN_ACCEPT_AMOUNT, null);
     });
   };
 
@@ -74,7 +76,7 @@ class App extends React.Component {
     try {
       let address = Utils.getAddressFromPrivateKey(this.state.walletDetail.privateKey);
       this.changeWalletDetail("address", address);
-      this.provider.getAllBalancesTokenAtLatestBlock(address, CONSTANTS.tokenList)
+      this.provider.getAllBalancesTokenAtLatestBlock(address, CONSTANTS.TOKEN_LIST)
         .then(tokens => {
           this.changeWalletDetail('tokens', tokens, () => {
             this.setState({
@@ -108,7 +110,7 @@ class App extends React.Component {
       let address = "0x" + keyObj.address;
       this.changeWalletDetail("address", address);
       try {
-        this.provider.getAllBalancesTokenAtLatestBlock(address, CONSTANTS.tokenList)
+        this.provider.getAllBalancesTokenAtLatestBlock(address, CONSTANTS.TOKEN_LIST)
           .then(tokens => this.changeWalletDetail('tokens', tokens))
           .catch(error => alert(error));
         this.setState({
@@ -125,32 +127,49 @@ class App extends React.Component {
     this.clearLastTimeout();
     let swapDetail = JSON.parse(JSON.stringify(this.state.swapDetail));
     swapDetail[key][type] = value;
-    this.setState({swapDetail}, () => {
+    if (type === "value" && this.state.expectedPrice) {
+      if (key === "source") {
+        swapDetail.destiny.value = (swapDetail.source.value * this.state.expectedPrice).toFixed(CONSTANTS.PRECISION);
+      } else {
+        swapDetail.source.value = (swapDetail.destiny.value / this.state.expectedPrice).toFixed(CONSTANTS.PRECISION);
+      }
+    }
+    this.setState({
+      errorMsg: '',
+      swapDetail
+    }, () => {
       const { swapDetail } = this.state;
-      this.updateRate(swapDetail.source, swapDetail.destiny, key === 'source' ? 'destiny' : 'source');
+      this.updateRate(swapDetail.source, swapDetail.destiny, swapDetail.source.value, key === 'source' ? 'destiny' : 'source');
     });
   };
 
-  updateRate = (source, destiny, updateTarget) => {
+  updateRate = (source, destiny, decimalAmount, updateTarget) => {
     this.lastUpdateId++;
     const currentUpdateId = this.lastUpdateId;
     this.setState({isUpdateRate: true});
     const reUpdateRate = () => {
       this.clearLastTimeout();
       const timeoutId = setTimeout(() => {
-        this.updateRate(source, destiny, updateTarget);
+        this.updateRate(source, destiny, decimalAmount, updateTarget);
       }, CONSTANTS.TIME_TO_UPDATE_RATE);
       this.lastTimeoutId = timeoutId;
     };
     this.provider.getLatestBlock()
       .then(latestBlockNo => {
-        const amount = Utils.toHex((source.value ? source.value : 1) * Math.pow(10, 18));
+        const amount = Utils.toHex((decimalAmount ? decimalAmount : CONSTANTS.NETWORK_MIN_ACCEPT_AMOUNT) * Math.pow(10, 18));
         this.provider.getRateAtSpecificBlock(source.token.address, destiny.token.address, amount, latestBlockNo)
           .then(data => {
             if (currentUpdateId !== this.lastUpdateId) {
               return;
             }
             let expectedPrice = parseInt(data.expectedPrice.toString())/Math.pow(10, 18);
+            if (expectedPrice === 0) {
+              this.setState({
+                errorMsg: "System cannot handle your swap at the moment, please reduce your swap value"
+              });
+              this.updateRate(source, destiny, CONSTANTS.NETWORK_MIN_ACCEPT_AMOUNT, updateTarget);
+              return;
+            }
             let swapDetail = JSON.parse(JSON.stringify(this.state.swapDetail));
             if (updateTarget && (source.value || destiny.value)) {
               if (updateTarget === 'destiny') {
@@ -160,11 +179,12 @@ class App extends React.Component {
               }
             }
             let invertRate = (1 / expectedPrice).toFixed(CONSTANTS.PRECISION);
-            if (updateTarget) {
+            if (updateTarget && swapDetail.source.value && swapDetail.destiny.value) {
               invertRate = (swapDetail.source.value / swapDetail.destiny.value).toFixed(CONSTANTS.PRECISION);
             }
             this.setState({
               isUpdateRate: false,
+              expectedPrice,
               invertRate,
               swapDetail
             }, () => {
@@ -209,6 +229,13 @@ class App extends React.Component {
               onChangeToken={this.onChangeToken}
             />
           </div>
+          {
+            this.state.errorMsg ? (
+              <div className="error-msg col-12 g-margin g-padding text-center">
+                <span>{this.state.errorMsg}</span>
+              </div>
+            ) : ""
+          }
           <div className="invert-rate-container d-flex justify-content-start align-items-center g-margin g-padding">
             {
               this.state.isUpdateRate ? (
